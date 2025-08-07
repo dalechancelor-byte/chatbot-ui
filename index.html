@@ -41,9 +41,10 @@
 </head>
 <body>
   <h1>ChatGPT Chatbot</h1>
-  <div id="chat"></div>
+  <div id="chat" aria-live="polite"></div>
   <div>
-    <input id="input" placeholder="Type your question…" />
+    <label for="input" style="display:none;">Chat Input</label>
+    <input id="input" placeholder="Type your question…" autocomplete="off" />
     <button id="send">Send</button>
   </div>
 
@@ -51,7 +52,9 @@
     const chatEl = document.getElementById('chat');
     const inputEl = document.getElementById('input');
     const sendBtn = document.getElementById('send');
-    const endpoint = 'https://openai-proxy.dalec.workers.dev';
+
+    const API_URL = 'https://openai-proxy.dalec.workers.dev';
+    const MODEL = 'gpt-3.5-turbo';
 
     function appendMessage(text, cls) {
       const div = document.createElement('div');
@@ -59,37 +62,55 @@
       div.textContent = text;
       chatEl.appendChild(div);
       chatEl.scrollTop = chatEl.scrollHeight;
+      return div;
     }
 
-    sendBtn.onclick = async () => {
+    async function sendMessage() {
       const text = inputEl.value.trim();
-      if (!text) return;
+      if (!text || text.length > 1000) return;
 
       appendMessage(`You: ${text}`, 'user');
       inputEl.value = '';
+      inputEl.disabled = true;
+      sendBtn.disabled = true;
 
-      appendMessage('Bot: …thinking…', 'bot');
+      const thinkingEl = appendMessage('Bot: …thinking…', 'bot');
+
       try {
-        const res = await fetch(endpoint, {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const res = await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'gpt-3.5-turbo',
+            model: MODEL,
             messages: [{ role: 'user', content: text }],
           }),
+          signal: controller.signal,
         });
 
-        if (!res.ok) {
-          throw new Error(`HTTP error ${res.status}`);
-        }
+        clearTimeout(timeoutId);
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json();
-        chatEl.lastChild.textContent = 'Bot: ' + data.choices[0].message.content;
+        thinkingEl.textContent = 'Bot: ' + data.choices[0].message.content;
       } catch (err) {
-        chatEl.lastChild.textContent = 'Bot: [Error] ' + err.message;
+        thinkingEl.textContent = 'Bot: [Error] ' + (err.name === 'AbortError' ? 'Request timed out' : err.message);
         console.error('Fetch error:', err);
+      } finally {
+        inputEl.disabled = false;
+        sendBtn.disabled = false;
+        inputEl.focus();
       }
-    };
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
   </script>
 </body>
 </html>
