@@ -5,13 +5,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ChatGPT Chatbot</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 1em; }
-    #chat { border: 1px solid #ccc; padding: 1em; height: 400px; overflow-y: auto; }
-    .message { margin-bottom: 1em; }
-    .user { color: blue; }
-    .bot { color: green; }
-    #input { width: calc(100% - 60px); padding: 0.5em; }
-    #send { padding: 0.5em; }
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: auto;
+      padding: 1em;
+    }
+    #chat {
+      border: 1px solid #ccc;
+      padding: 1em;
+      height: 400px;
+      overflow-y: auto;
+      background: #f9f9f9;
+    }
+    .message {
+      margin-bottom: 1em;
+    }
+    .user {
+      color: blue;
+      font-weight: bold;
+    }
+    .bot {
+      color: green;
+      font-weight: bold;
+    }
+    #input {
+      width: calc(100% - 70px);
+      padding: 0.5em;
+    }
+    #send {
+      padding: 0.5em;
+      margin-left: 5px;
+    }
   </style>
 </head>
 <body>
@@ -21,36 +46,49 @@
     <input id="input" placeholder="Type your question…" />
     <button id="send">Send</button>
   </div>
+
   <script>
     const chatEl = document.getElementById('chat');
     const inputEl = document.getElementById('input');
     const sendBtn = document.getElementById('send');
     const endpoint = 'https://openai-proxy.dalec.workers.dev';
-    function append(msg, cls) {
+
+    function appendMessage(text, cls) {
       const div = document.createElement('div');
-      div.className = 'message ' + cls;
-      div.textContent = msg;
-      chatEl.append(div);
+      div.className = `message ${cls}`;
+      div.textContent = text;
+      chatEl.appendChild(div);
       chatEl.scrollTop = chatEl.scrollHeight;
     }
 
     sendBtn.onclick = async () => {
       const text = inputEl.value.trim();
       if (!text) return;
-      append('You: ' + text, 'user');
+
+      appendMessage(`You: ${text}`, 'user');
       inputEl.value = '';
 
-      append('…thinking…', 'bot');
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [{ role: 'user', content: text }],
-        }),
-      });
-      const data = await res.json();
-      chatEl.lastChild.textContent = 'Bot: ' + data.choices[0].message.content;
+      appendMessage('Bot: …thinking…', 'bot');
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'gpt-3.5-turbo',
+            messages: [{ role: 'user', content: text }],
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTP error ${res.status}`);
+        }
+
+        const data = await res.json();
+        chatEl.lastChild.textContent = 'Bot: ' + data.choices[0].message.content;
+      } catch (err) {
+        chatEl.lastChild.textContent = 'Bot: [Error] ' + err.message;
+        console.error('Fetch error:', err);
+      }
     };
   </script>
 </body>
