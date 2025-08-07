@@ -1,116 +1,56 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ChatGPT Chatbot</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 600px;
-      margin: auto;
-      padding: 1em;
+<script>
+  const chatEl = document.getElementById('chat');
+  const inputEl = document.getElementById('input');
+  const sendBtn = document.getElementById('send');
+
+  const API_URL = 'https://openai-proxy.dalec.workers.dev'; // ✅ Your Worker URL
+  const MODEL = 'gpt-3.5-turbo';
+
+  function appendMessage(text, cls) {
+    const div = document.createElement('div');
+    div.className = `message ${cls}`;
+    div.textContent = text;
+    chatEl.appendChild(div);
+    chatEl.scrollTop = chatEl.scrollHeight;
+    return div;
+  }
+
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    appendMessage(`You: ${text}`, 'user');
+    inputEl.value = '';
+    inputEl.disabled = true;
+    sendBtn.disabled = true;
+
+    const thinkingEl = appendMessage('Bot: …thinking…', 'bot');
+
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: MODEL,
+          messages: [{ role: 'user', content: text }],
+        }),
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      thinkingEl.textContent = 'Bot: ' + data.choices[0].message.content;
+    } catch (err) {
+      thinkingEl.textContent = 'Bot: [Error] ' + err.message;
+    } finally {
+      inputEl.disabled = false;
+      sendBtn.disabled = false;
+      inputEl.focus();
     }
-    #chat {
-      border: 1px solid #ccc;
-      padding: 1em;
-      height: 400px;
-      overflow-y: auto;
-      background: #f9f9f9;
-    }
-    .message {
-      margin-bottom: 1em;
-    }
-    .user {
-      color: blue;
-      font-weight: bold;
-    }
-    .bot {
-      color: green;
-      font-weight: bold;
-    }
-    #input {
-      width: calc(100% - 70px);
-      padding: 0.5em;
-    }
-    #send {
-      padding: 0.5em;
-      margin-left: 5px;
-    }
-  </style>
-</head>
-<body>
-  <h1>ChatGPT Chatbot</h1>
-  <div id="chat" aria-live="polite"></div>
-  <div>
-    <label for="input" style="display:none;">Chat Input</label>
-    <input id="input" placeholder="Type your question…" autocomplete="off" />
-    <button id="send">Send</button>
-  </div>
+  }
 
-  <script>
-    const chatEl = document.getElementById('chat');
-    const inputEl = document.getElementById('input');
-    const sendBtn = document.getElementById('send');
-
-    const API_URL = 'https://openai-proxy.dalec.workers.dev';
-    const MODEL = 'gpt-3.5-turbo';
-
-    function appendMessage(text, cls) {
-      const div = document.createElement('div');
-      div.className = `message ${cls}`;
-      div.textContent = text;
-      chatEl.appendChild(div);
-      chatEl.scrollTop = chatEl.scrollHeight;
-      return div;
-    }
-
-    async function sendMessage() {
-      const text = inputEl.value.trim();
-      if (!text || text.length > 1000) return;
-
-      appendMessage(`You: ${text}`, 'user');
-      inputEl.value = '';
-      inputEl.disabled = true;
-      sendBtn.disabled = true;
-
-      const thinkingEl = appendMessage('Bot: …thinking…', 'bot');
-
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-        const res = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: MODEL,
-            messages: [{ role: 'user', content: text }],
-          }),
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const data = await res.json();
-        thinkingEl.textContent = 'Bot: ' + data.choices[0].message.content;
-      } catch (err) {
-        thinkingEl.textContent = 'Bot: [Error] ' + (err.name === 'AbortError' ? 'Request timed out' : err.message);
-        console.error('Fetch error:', err);
-      } finally {
-        inputEl.disabled = false;
-        sendBtn.disabled = false;
-        inputEl.focus();
-      }
-    }
-
-    sendBtn.addEventListener('click', sendMessage);
-
-    inputEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') sendMessage();
-    });
-  </script>
-</body>
-</html>
+  sendBtn.addEventListener('click', sendMessage);
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendMessage();
+  });
+</script>
